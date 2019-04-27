@@ -87,28 +87,6 @@
         <property name="sessionAcknowledgeMode" value="4"/>
     </bean>
 
-    <!--一个队列的目的地，点对点的-->
-    <bean id="queueDestinationNew"  class="org.apache.activemq.command.ActiveMQQueue">
-        <constructor-arg value="queueNew"/>
-    </bean>
-
-    <bean id="consumerMessageListenerNew" class="com.easylab.jms.consumer.ConsumerMessageListener"/>
-
-    <!--配置 消息监听容器-->
-    <bean id="jmsContainerNew" class=" org.springframework.jms.listener.DefaultMessageListenerContainer">
-        <property name="connectionFactory" ref="connectionFactory"/>
-        <property name="destination" ref="queueDestination"/>
-        <property name="messageListener" ref="consumerMessageListener"/>
-        <!--应答模式是 INDIVIDUAL_ACKNOWLEDGE-->
-        <!--AUTO_ACKNOWLEDGE = 1    自动确认
-        CLIENT_ACKNOWLEDGE = 2    客户端手动确认
-        DUPS_OK_ACKNOWLEDGE = 3    自动批量确认
-        SESSION_TRANSACTED = 0    事务提交并确认
-        INDIVIDUAL_ACKNOWLEDGE = 4    单条消息确认-->
-        <property name="sessionAcknowledgeMode" value="4"/>
-    </bean>
-
-
     <bean id="consumerMessageListenerTopic" class="com.easylab.jms.consumer.ConsumerMessageListenerTopic"/>
 
     <!--配置 topoic消息监听容器-->
@@ -167,6 +145,26 @@
         <property name="connectionFactory" ref="connectionFactory"/>
         <property name="destination" ref="responseQueue"/>
         <property name="messageListener" ref="responseQueueListener"/>
+    </bean>-->
+
+
+    <!--持久化相关===================================================== -->
+   <!-- <broker xmlns="http://activemq.apache.org/schema/core" brokerName="localhost" dataDirectory="${activemq.data}" persistent="true">
+        &lt;!&ndash;<persistenceAdapter>
+             <kahaDB directory="${activemq.data}/kahadb"/>
+         </persistenceAdapter> &ndash;&gt;
+        <persistenceAdapter>
+            <jdbcPersistenceAdapter dataDirectory="${activemq.data}" dataSource="#mysql-ds">
+            </jdbcPersistenceAdapter>
+        </persistenceAdapter>
+    </broker>
+    <bean id="mysql-ds" class="org.apache.commons.dbcp.BasicDataSource" destroy-method="close">
+        <property name="driverClassName" value="com.mysql.jdbc.Driver"/>
+        <property name="url" value="jdbc:mysql://127.0.0.1/activemq?relaxAutoCommit=true"/>
+        <property name="username" value="root"/>
+        <property name="password" value="123456"/>
+        <property name="maxActive" value="200"/>
+        <property name="poolPreparedStatements" value="true"/>
     </bean>-->
 
 </beans>
