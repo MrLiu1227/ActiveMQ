@@ -1,0 +1,172 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context.xsd">
+
+    <!--开启注解-->
+    <context:component-scan base-package="com.easylab.jms"/>
+
+    <!--PooledConnectionFactory对session和消息producer的缓存机制而带来的性能提升-->
+    <bean id="connectionFactory" class="org.apache.activemq.pool.PooledConnectionFactory"
+          destroy-method="stop">
+        <property name="connectionFactory">
+            <!--连接mq的连接工厂-->
+            <bean class="org.apache.activemq.ActiveMQConnectionFactory">
+                <property name="brokerURL">
+                    <value>tcp://127.0.0.1:61616</value>
+                </property>
+                <!-- 引用重发机制 -->
+                <property name="redeliveryPolicy" ref="activeMQRedeliveryPolicy" />
+            </bean>
+        </property>
+        <property name="maxConnections" value="100"></property>
+    </bean>
+
+    <!-- 定义ReDelivery(重发机制)机制  -->
+    <bean id="activeMQRedeliveryPolicy" class="org.apache.activemq.RedeliveryPolicy">
+        <!--是否在每次尝试重新发送失败后,增长这个等待时间 -->
+        <property name="useExponentialBackOff" value="true"/>
+        <!--重发次数,默认为6次-->
+        <property name="maximumRedeliveries" value="2"/>
+        <!--重发时间间隔,默认为1秒 -->
+        <property name="initialRedeliveryDelay" value="1000"/>
+        <!--第一次失败后重新发送之前等待500毫秒,第二次失败再等待500 * 2毫秒,这里的2就是value -->
+        <property name="backOffMultiplier" value="2"/>
+        <!--最大传送延迟，只在useExponentialBackOff为true时有效（V5.5），假设首次重连间隔为10ms，倍数为2，那么第二次重连时间间隔为 20ms，
+        第三次重连时间间隔为40ms，当重连时间间隔大的最大重连时间间隔时，以后每次重连时间间隔都为最大重连时间间隔。 -->
+        <property name="maximumRedeliveryDelay" value="1000"/>
+    </bean>
+
+
+    <!--使用缓存可以提升效率-->
+    <bean id="cachingConnectionFactory" class="org.springframework.jms.connection.CachingConnectionFactory">
+        <property name="targetConnectionFactory" ref="connectionFactory"/>
+        <property name="sessionCacheSize" value="1"/>
+    </bean>
+
+    <!--配置JmsTemplate，用于发送消息-->
+    <bean id="jmsTemplate" class="org.springframework.jms.core.JmsTemplate">
+        <property name="connectionFactory"  ref="connectionFactory"/>
+        <!--给一个默认的是destination-->
+        <property name="defaultDestination" ref="queueDestination"/>
+    </bean>
+
+    <!--一个队列的目的地，点对点的-->
+    <bean id="queueDestination"  class="org.apache.activemq.command.ActiveMQQueue">
+        <constructor-arg value="queue"/>
+    </bean>
+
+    <!--主题模式配置-->
+    <bean id="topicDestination" class="org.apache.activemq.command.ActiveMQTopic">
+        <constructor-arg value="topic"/>
+    </bean>
+
+    <!-- jms -->
+    <bean id="jmsTransactionManager"
+          class="org.springframework.jms.connection.JmsTransactionManager">
+        <property name="connectionFactory" ref="connectionFactory" />
+    </bean>
+
+    <!--消费者所需=============================================-->
+
+    <!--消息监听器-->
+    <bean id="consumerMessageListener" class="com.easylab.jms.consumer.ConsumerMessageListener"/>
+
+    <!--配置 消息监听容器-->
+    <bean id="jmsContainer" class=" org.springframework.jms.listener.DefaultMessageListenerContainer">
+        <property name="connectionFactory" ref="connectionFactory"/>
+        <property name="destination" ref="queueDestination"/>
+        <property name="messageListener" ref="consumerMessageListener"/>
+        <!--应答模式是 INDIVIDUAL_ACKNOWLEDGE-->
+        <!--AUTO_ACKNOWLEDGE = 1    自动确认
+        CLIENT_ACKNOWLEDGE = 2    客户端手动确认
+        DUPS_OK_ACKNOWLEDGE = 3    自动批量确认
+        SESSION_TRANSACTED = 0    事务提交并确认
+        INDIVIDUAL_ACKNOWLEDGE = 4    单条消息确认-->
+        <property name="sessionAcknowledgeMode" value="4"/>
+    </bean>
+
+    <!--一个队列的目的地，点对点的-->
+    <bean id="queueDestinationNew"  class="org.apache.activemq.command.ActiveMQQueue">
+        <constructor-arg value="queueNew"/>
+    </bean>
+
+    <bean id="consumerMessageListenerNew" class="com.easylab.jms.consumer.ConsumerMessageListener"/>
+
+    <!--配置 消息监听容器-->
+    <bean id="jmsContainerNew" class=" org.springframework.jms.listener.DefaultMessageListenerContainer">
+        <property name="connectionFactory" ref="connectionFactory"/>
+        <property name="destination" ref="queueDestination"/>
+        <property name="messageListener" ref="consumerMessageListener"/>
+        <!--应答模式是 INDIVIDUAL_ACKNOWLEDGE-->
+        <!--AUTO_ACKNOWLEDGE = 1    自动确认
+        CLIENT_ACKNOWLEDGE = 2    客户端手动确认
+        DUPS_OK_ACKNOWLEDGE = 3    自动批量确认
+        SESSION_TRANSACTED = 0    事务提交并确认
+        INDIVIDUAL_ACKNOWLEDGE = 4    单条消息确认-->
+        <property name="sessionAcknowledgeMode" value="4"/>
+    </bean>
+
+
+    <bean id="consumerMessageListenerTopic" class="com.easylab.jms.consumer.ConsumerMessageListenerTopic"/>
+
+    <!--配置 topoic消息监听容器-->
+    <bean id="jmsContainerTopic" class=" org.springframework.jms.listener.DefaultMessageListenerContainer">
+        <property name="connectionFactory" ref="connectionFactory"/>
+        <property name="destination" ref="topicDestination"/>
+        <property name="messageListener" ref="consumerMessageListenerTopic"/>
+    </bean>
+
+    <!--以下是使用MessageListenerAdapter监听器相关==============================================================================-->
+
+    <!-- 消息监听适配器 第一种方法通过构造方法参数设置 -->
+    <!--<bean id="messageListenerAdapter" class="org.springframework.jms.listener.adapter.MessageListenerAdapter">
+        <constructor-arg>
+            <bean class="com.easylab.jms.consumer.myListenner"/>
+        </constructor-arg>
+    </bean>-->
+
+    <!-- 消息监听适配器 第二种方法通过delegate属性设置 -->
+    <bean id="messageListenerAdapter" class="org.springframework.jms.listener.adapter.MessageListenerAdapter">
+        <property name="delegate">
+            <bean class="com.easylab.jms.consumer.myListenner"/>
+        </property>
+        <!--默认接受到消息后调用哪个方法-->
+        <property name="defaultListenerMethod" value="receiveMessage"/>
+        <!--设置监听器回复消息的队列（用的以前的点对点队列），也可以通过发送者发送方中的方法setJMSReplyTo设置-->
+        <property name="defaultResponseDestination" ref="queueDestination"/>
+    </bean>
+
+    <!-- 消息监听适配器对应的监听容器 -->
+    <bean id="messageListenerAdapterContainer" class="org.springframework.jms.listener.DefaultMessageListenerContainer">
+        <property name="connectionFactory" ref="connectionFactory"/>
+        <property name="destination" ref="adapterQueue"/>
+        <property name="messageListener" ref="messageListenerAdapter"/><!-- 使用MessageListenerAdapter来作为消息监听器 -->
+    </bean>
+
+    <!-- 用于测试消息监听适配器的队列目的地 -->
+    <bean id="adapterQueue" class="org.apache.activemq.command.ActiveMQQueue">
+        <constructor-arg>
+            <value>adapterQueue</value>
+        </constructor-arg>
+    </bean>
+
+    <!--&lt;!&ndash; 用于测试自动消息回复的&ndash;&gt;
+    <bean id="responseQueue" class="org.apache.activemq.command.ActiveMQQueue">
+        <constructor-arg>
+            <value>responseQueue</value>
+        </constructor-arg>
+    </bean>
+
+    &lt;!&ndash; responseQueue对应的监听器 &ndash;&gt;
+    <bean id="responseQueueListener" class="com.easylab.jms.consumer.ConsumerMessageListener"/>
+
+    &lt;!&ndash; responseQueue对应的监听容器 ，使用一般的监听器就行&ndash;&gt;
+    <bean id="responseQueueMessageListenerContainer" class="org.springframework.jms.listener.DefaultMessageListenerContainer">
+        <property name="connectionFactory" ref="connectionFactory"/>
+        <property name="destination" ref="responseQueue"/>
+        <property name="messageListener" ref="responseQueueListener"/>
+    </bean>-->
+
+</beans>
